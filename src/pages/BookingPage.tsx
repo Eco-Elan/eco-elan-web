@@ -1,0 +1,67 @@
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { StepBar } from "./booking/StepBar";
+import { StepService } from "./booking/StepService";
+import { StepSchedule } from "./booking/StepSchedule";
+import { StepDetails } from "./booking/StepDetails";
+import { StepConfirm } from "./booking/StepConfirm";
+import { BookingConfirmed } from "./booking/BookingConfirmed";
+import type { BookingData } from "./booking/types";
+
+const steps = ["Service", "Schedule", "Details", "Confirm"];
+
+export function BookingPage() {
+  const [params] = useSearchParams();
+  const serviceParam = params.get("service");
+
+  const [step, setStep] = useState(0);
+  const [confirmed, setConfirmed] = useState<number | null>(null);
+  const [data, setData] = useState<BookingData>({
+    service: serviceParam || "deep",
+    size: "1br",
+    addons: [],
+    date: null,
+    time: null,
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    postal: "",
+    notes: "",
+  });
+
+  useEffect(() => {
+    if (serviceParam && serviceParam !== data.service) {
+      setData((d) => ({ ...d, service: serviceParam }));
+      setStep(0);
+      setConfirmed(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serviceParam]);
+
+  if (confirmed !== null) return <BookingConfirmed data={data} total={confirmed} />;
+
+  return (
+    <>
+      <section style={{ paddingBottom: 20, paddingTop: 40 }}>
+        <div className="container-x" style={{ textAlign: "center", paddingTop: 40 }}>
+          <h1 style={{ fontSize: "clamp(36px, 5.5vw, 60px)" }}>
+            Book your <span style={{ color: "var(--eco-green)" }}>Eco Clean</span>
+          </h1>
+          <p style={{ color: "var(--eco-muted)", fontSize: 17, marginTop: 14 }}>
+            Schedule your premium plant-based clean in a few simple steps.
+          </p>
+        </div>
+      </section>
+      <StepBar step={step} steps={steps} />
+      <div style={{ paddingTop: 40, paddingBottom: 60 }}>
+        {step === 0 && <StepService data={data} setData={setData} next={() => setStep(1)} />}
+        {step === 1 && <StepSchedule data={data} setData={setData} next={() => setStep(2)} back={() => setStep(0)} />}
+        {step === 2 && <StepDetails data={data} setData={setData} next={() => setStep(3)} back={() => setStep(1)} />}
+        {step === 3 && <StepConfirm data={data} back={() => setStep(2)} confirm={(t) => setConfirmed(t)} />}
+      </div>
+    </>
+  );
+}
