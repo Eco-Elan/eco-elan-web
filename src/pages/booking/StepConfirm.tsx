@@ -1,20 +1,20 @@
 import { Icon } from "../../components/Icon";
 import { Reveal } from "../../components/Reveal";
 import { SERVICES, ADDONS, PROPERTY_SIZES } from "../../data/content";
+import { computeTotal } from "../../data/pricing";
 import { Row } from "./Row";
 import type { BookingData } from "./types";
 
 type Props = {
   data: BookingData;
   back: () => void;
-  confirm: (total: number) => void;
+  next: () => void;
 };
 
-export function StepConfirm({ data, back, confirm }: Props) {
+export function StepConfirm({ data, back, next }: Props) {
   const svc = SERVICES.find((s) => s.id === data.service) ?? SERVICES[0];
   const sz = PROPERTY_SIZES.find((p) => p.id === data.size) ?? PROPERTY_SIZES[1];
-  const addonsTotal = data.addons.reduce((sum, id) => sum + (ADDONS.find((a) => a.id === id)?.price ?? 0), 0);
-  const total = Math.round(svc.price * sz.mult + addonsTotal);
+  const total = computeTotal(data);
   const dateStr = data.date
     ? data.date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
     : "—";
@@ -152,10 +152,10 @@ export function StepConfirm({ data, back, confirm }: Props) {
           </button>
           <button
             className="btn btn-primary"
-            onClick={() => confirm(total)}
+            onClick={next}
             style={{ fontSize: 16, padding: "16px 28px" }}
           >
-            <Icon name="sparkles" size={16} /> Confirm Booking
+            Continue to Payment <Icon name="arrow-right" size={16} />
           </button>
         </div>
       </div>

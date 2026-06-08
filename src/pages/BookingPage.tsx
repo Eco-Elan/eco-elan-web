@@ -5,10 +5,11 @@ import { StepService } from "./booking/StepService";
 import { StepSchedule } from "./booking/StepSchedule";
 import { StepDetails } from "./booking/StepDetails";
 import { StepConfirm } from "./booking/StepConfirm";
+import { StepPayment } from "./booking/StepPayment";
 import { BookingConfirmed } from "./booking/BookingConfirmed";
 import type { BookingData } from "./booking/types";
 
-const steps = ["Service", "Schedule", "Details", "Confirm"];
+const steps = ["Service", "Schedule", "Details", "Confirm", "Payment"];
 
 export function BookingPage() {
   const [params] = useSearchParams();
@@ -34,9 +35,13 @@ export function BookingPage() {
 
   useEffect(() => {
     if (serviceParam && serviceParam !== data.service) {
+      // Intentional sync of the ?service= URL param into wizard state (resets
+      // the flow when a different service is chosen from the navbar dropdown).
+      /* eslint-disable react-hooks/set-state-in-effect */
       setData((d) => ({ ...d, service: serviceParam }));
       setStep(0);
       setConfirmed(null);
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceParam]);
@@ -60,7 +65,17 @@ export function BookingPage() {
         {step === 0 && <StepService data={data} setData={setData} next={() => setStep(1)} />}
         {step === 1 && <StepSchedule data={data} setData={setData} next={() => setStep(2)} back={() => setStep(0)} />}
         {step === 2 && <StepDetails data={data} setData={setData} next={() => setStep(3)} back={() => setStep(1)} />}
-        {step === 3 && <StepConfirm data={data} back={() => setStep(2)} confirm={(t) => setConfirmed(t)} />}
+        {step === 3 && <StepConfirm data={data} back={() => setStep(2)} next={() => setStep(4)} />}
+        {step === 4 && (
+          <StepPayment
+            data={data}
+            back={() => setStep(3)}
+            onPaid={(total, paymentIntentId) => {
+              setData((d) => ({ ...d, paymentStatus: "succeeded", paymentIntentId }));
+              setConfirmed(total);
+            }}
+          />
+        )}
       </div>
     </>
   );

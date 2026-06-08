@@ -1,6 +1,6 @@
 import { Icon, type IconName } from "./Icon";
 import { Logo } from "./Logo";
-import { useGo } from "../lib/nav";
+import { pathFor, useGo } from "../lib/nav";
 import { SERVICES } from "../data/content";
 
 const socials: IconName[] = ["instagram", "facebook", "linkedin", "twitter"];
@@ -44,7 +44,7 @@ export function Footer() {
               {quickLinks.map(([k, v]) => (
                 <li key={k}>
                   <a
-                    href="#"
+                    href={pathFor(k)}
                     onClick={(e) => {
                       e.preventDefault();
                       go(k);
@@ -62,7 +62,7 @@ export function Footer() {
               {SERVICES.map((s) => (
                 <li key={s.id}>
                   <a
-                    href="#"
+                    href={pathFor("booking", { service: s.id })}
                     onClick={(e) => {
                       e.preventDefault();
                       go("booking", { service: s.id });
@@ -117,7 +117,7 @@ export function Footer() {
             <a href="#">Privacy</a>
             <a href="#">Terms</a>
             <a href="#">Accessibility</a>
-            <a href="#">Sitemap</a>
+            <a href="/sitemap.xml">Sitemap</a>
           </span>
         </div>
       </div>

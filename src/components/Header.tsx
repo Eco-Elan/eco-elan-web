@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "./Icon";
 import { Logo } from "./Logo";
-import { useCurrentRoute, useGo, type RouteName } from "../lib/nav";
+import { pathFor, useCurrentRoute, useGo, type RouteName } from "../lib/nav";
 
 type ServiceItem = { key: string; label: string; desc: string; icon: IconName };
 
@@ -179,9 +179,13 @@ export function Header() {
                   onMouseEnter={() => l.dd && openMenu(l.id)}
                   onMouseLeave={() => l.dd && closeMenu()}
                 >
-                  <span
+                  <a
+                    href={pathFor(l.id)}
                     className={`nav-link ${route === l.id ? "active" : ""}`}
-                    onClick={() => go(l.id)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      go(l.id);
+                    }}
                     style={{
                       color: route === l.id ? (atTop ? "var(--eco-green-light)" : "var(--eco-green)") : textColor,
                       transition: "color .3s",
@@ -189,7 +193,7 @@ export function Header() {
                   >
                     {l.label}
                     {l.dd && <Icon name="chevron-down" size={14} />}
-                  </span>
+                  </a>
                   {l.dd && (
                     <NavDropdown
                       open={openDD === l.id}

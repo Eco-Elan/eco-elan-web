@@ -12,4 +12,7 @@ export type BookingData = {
   city: string;
   postal: string;
   notes: string;
+  /** Set once Stripe confirms the PaymentIntent (drives the receipt screen). */
+  paymentStatus?: "succeeded";
+  paymentIntentId?: string;
 };

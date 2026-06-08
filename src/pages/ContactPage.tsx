@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import { Reveal } from "../components/Reveal";
 import { PageHero } from "../components/PageHero";
@@ -21,6 +21,34 @@ export function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [postalChecked, setPostalChecked] = useState(false);
   const [postal, setPostal] = useState("");
+
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    service: SERVICES[0]?.id ?? "standard",
+    message: "",
+  });
+  const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
+  const setField = (k: keyof typeof form) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setStatus("sending");
+    try {
+      const serviceName = SERVICES.find((s) => s.id === form.service)?.name ?? form.service;
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, service: serviceName }),
+      });
+      if (!res.ok) throw new Error("send failed");
+      setSubmitted(true);
+    } catch {
+      setStatus("error");
+    }
+  };
 
   return (
     <>
@@ -133,30 +161,24 @@ export function ContactPage() {
                     <p style={{ color: "var(--eco-muted)" }}>We'll get back to you within minutes during business hours.</p>
                   </div>
                 ) : (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      setSubmitted(true);
-                    }}
-                    style={{ display: "flex", flexDirection: "column", gap: 16 }}
-                  >
+                  <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                     <div>
                       <label className="label">Full Name *</label>
-                      <input className="input" placeholder="John Doe" required />
+                      <input className="input" placeholder="John Doe" required value={form.name} onChange={setField("name")} />
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                       <div>
                         <label className="label">Email *</label>
-                        <input className="input" type="email" placeholder="john@example.com" required />
+                        <input className="input" type="email" placeholder="john@example.com" required value={form.email} onChange={setField("email")} />
                       </div>
                       <div>
                         <label className="label">Phone</label>
-                        <input className="input" type="tel" placeholder="(416) 555-0123" />
+                        <input className="input" type="tel" placeholder="(416) 555-0123" value={form.phone} onChange={setField("phone")} />
                       </div>
                     </div>
                     <div>
                       <label className="label">Service Interested In</label>
-                      <select className="select" defaultValue="standard">
+                      <select className="select" value={form.service} onChange={setField("service")}>
                         {SERVICES.map((s) => (
                           <option key={s.id} value={s.id}>
                             {s.name}
@@ -166,10 +188,18 @@ export function ContactPage() {
                     </div>
                     <div>
                       <label className="label">Message</label>
-                      <textarea className="textarea" rows={4} placeholder="Tell us about your cleaning needs…" />
+                      <textarea className="textarea" rows={4} placeholder="Tell us about your cleaning needs…" required value={form.message} onChange={setField("message")} />
                     </div>
-                    <button className="btn btn-primary" type="submit" style={{ alignSelf: "flex-start" }}>
-                      Send Message <Icon name="send" size={16} />
+                    {status === "error" && (
+                      <div
+                        role="alert"
+                        style={{ display: "flex", gap: 10, alignItems: "center", padding: "12px 14px", borderRadius: 12, background: "#FCEDED", border: "1px solid #F3C9C9", color: "#A03434", fontSize: 14, fontWeight: 600 }}
+                      >
+                        <Icon name="x-circle" size={18} /> Something went wrong — please try again or email us directly.
+                      </div>
+                    )}
+                    <button className="btn btn-primary" type="submit" disabled={status === "sending"} style={{ alignSelf: "flex-start", opacity: status === "sending" ? 0.6 : 1 }}>
+                      {status === "sending" ? "Sending…" : "Send Message"} <Icon name="send" size={16} />
                     </button>
                   </form>
                 )}

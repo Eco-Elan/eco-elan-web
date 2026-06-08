@@ -390,9 +390,9 @@ function SceneAir({ go }: { go: Go }) {
       <div className="container-x" style={{ position: "relative", width: "100%" }}>
         <div className="scene-rise" style={{ maxWidth: 600 }}>
           <span className="hero-eyebrow"><Icon name="wind" size={14} /> Breathe easier indoors</span>
-          <h1 className="hero-h1 hero-h1-xl">
+          <div className="hero-h1 hero-h1-xl" role="heading" aria-level={2}>
             {WHITE}<br /><span style={{ color: "var(--eco-green-light)" }}>Healthier air.</span>
-          </h1>
+          </div>
           <p className="hero-sub" style={{ maxWidth: 520 }}>
             Plant-based products leave no synthetic fumes and no harsh residue — just genuinely cleaner air in every room you breathe.
           </p>
@@ -419,9 +419,9 @@ function SceneFamilies({ go }: { go: Go }) {
       <div className="container-x" style={{ position: "relative", width: "100%" }}>
         <div className="scene-rise" style={{ maxWidth: 580 }}>
           <span className="hero-eyebrow"><Icon name="users" size={14} /> Loved by 500+ GTA families</span>
-          <h1 className="hero-h1">
+          <div className="hero-h1" role="heading" aria-level={2}>
             {WHITE}<br /><span style={{ color: "var(--eco-green-light)" }}>Happier families.</span>
-          </h1>
+          </div>
           <p className="hero-sub" style={{ maxWidth: 500 }}>
             Safe for the whole household — kids, pets and the people you love. A spotless home with nothing to worry about.
           </p>
@@ -450,9 +450,9 @@ function SceneMornings({ go }: { go: Go }) {
       <div className="container-x" style={{ position: "relative", width: "100%", paddingBottom: "clamp(48px, 9vh, 96px)" }}>
         <div className="scene-rise" style={{ maxWidth: 620 }}>
           <span className="hero-eyebrow"><Icon name="sparkles" size={14} /> Wake up to clean</span>
-          <h1 className="hero-h1">
+          <div className="hero-h1" role="heading" aria-level={2}>
             {WHITE}<br /><span style={{ color: "#BFF0CF" }}>Fresher mornings.</span>
-          </h1>
+          </div>
           <p className="hero-sub" style={{ maxWidth: 520 }}>
             Wake up to spaces that feel renewed. Consistent, eco-friendly cleaning that keeps every morning bright and calm.
           </p>
@@ -476,9 +476,9 @@ function SceneEarth({ go }: { go: Go }) {
       <div className="container-x" style={{ position: "relative", width: "100%" }}>
         <div className="scene-rise" style={{ maxWidth: 600 }}>
           <span className="hero-eyebrow"><Icon name="globe" size={14} /> Kinder to the planet</span>
-          <h1 className="hero-h1">
+          <div className="hero-h1" role="heading" aria-level={2}>
             {WHITE}<br /><span style={{ color: "var(--eco-green-light)" }}>Greener earth.</span>
-          </h1>
+          </div>
           <p className="hero-sub" style={{ maxWidth: 500 }}>
             Biodegradable, non-toxic and better for the world outside your door. A cleaner home that doesn't cost the earth.
           </p>
@@ -508,9 +508,9 @@ function ScenePets({ go }: { go: Go }) {
       <div className="container-x" style={{ position: "relative", width: "100%" }}>
         <div className="scene-rise" style={{ maxWidth: 580 }}>
           <span className="hero-eyebrow"><Icon name="leaf" size={14} /> Paw-approved</span>
-          <h1 className="hero-h1 pets-h1">
+          <div className="hero-h1 pets-h1" role="heading" aria-level={2}>
             {WHITE}<br /><span className="pets-green">Safer for pets.</span>
-          </h1>
+          </div>
           <p className="hero-sub" style={{ maxWidth: 500 }}>
             Pet-safe, plant-based formulas with no harsh chemicals on the floors and surfaces your furry friends love.
           </p>
@@ -600,6 +600,24 @@ function Hero() {
       onMouseLeave={() => setHoverFocus(false)}
     >
       {runOverlay && <SpongeCleanOverlay heroRef={heroRef} onDone={enableRotation} />}
+      {/* The page's single, stable <h1>. The rotating scene headlines are
+          visually-styled role="heading" divs (level 2) so the document has
+          exactly one h1 for SEO + screen-reader outline. */}
+      <h1
+        style={{
+          position: "absolute",
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: "hidden",
+          clip: "rect(0 0 0 0)",
+          whiteSpace: "nowrap",
+          border: 0,
+        }}
+      >
+        Toronto's Eco-Friendly Plant-Based Cleaning Service
+      </h1>
       {HERO_SCENES.map((S, i) => {
         const active = i === activeIdx;
         return (
