@@ -44,10 +44,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ──────────────────────────────────────────────────────────────────────
     // SEAM: business notification email.
-    // Stripe already emails the CUSTOMER their receipt. To also notify the Eco
-    // Elan team of a new paid booking, send an internal email here using the
-    // PaymentIntent metadata (service, size, addons, customer_*, date, time,
-    // address, notes). Wire this to Resend (see api/contact.ts) when ready.
+    // Stripe already emails the CUSTOMER their receipt (receipt_email is set on
+    // the PaymentIntent), so there is no Resend send in this function today.
+    // To ALSO notify the Eco Elan team of a new paid booking, send an internal
+    // email here using the PaymentIntent metadata (service, size, addons,
+    // customer_*, date, time, address, notes). When wiring it to Resend:
+    //   const { data, error } = await resend.emails.send({ ... });
+    //   if (error) console.error("booking notification email failed", error);
+    // ALWAYS still return 200 below even if the email fails — a failed
+    // notification must never make Stripe retry this webhook.
     // ──────────────────────────────────────────────────────────────────────
   }
 

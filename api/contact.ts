@@ -25,6 +25,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  // Startup guard: a missing key would otherwise surface as a silent 401 from
+  // Resend. Fail loud and clear instead.
+  if (!process.env.RESEND_API_KEY) {
+    console.error("RESEND_API_KEY is not set — cannot send contact email");
+    return res.status(500).json({ error: "Email service is not configured" });
+  }
+
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body ?? {};
     const { name, email, phone, service, message } = body;
@@ -42,7 +49,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#6B7B72;font-weight:600">${esc(k)}</td><td style="padding:4px 0">${esc(v)}</td></tr>`)
       .join("");
 
-    await resend.emails.send({
+    // Main enquiry → the business inbox. resend.emails.send() does NOT throw on
+    // API errors; it resolves to { data, error }. Inspect `error` explicitly so
+    // a failed send becomes a real 502, not a false success.
+    const { data, error } = await resend.emails.send({
       from: FROM,
       to: TO,
       replyTo: String(email),
@@ -56,10 +66,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         </div>`,
     });
 
-    // Brief auto-reply to the visitor (best-effort — don't fail the request if
-    // this one bounces).
+    if (error) {
+      console.error("contact enquiry email failed", error);
+      return res.status(502).json({ error: "Email could not be sent" });
+    }
+    console.log("contact enquiry email sent", data?.id);
+
+    // Brief auto-reply to the visitor (best-effort — log but never fail the
+    // request if this one errors or bounces).
     try {
-      await resend.emails.send({
+      const { data: replyData, error: replyError } = await resend.emails.send({
         from: FROM,
         to: String(email),
         subject: "We received your message — Eco Elan",
@@ -70,8 +86,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             <p style="color:#6B7B72">— The Eco Elan Team</p>
           </div>`,
       });
+      if (replyError) console.error("contact auto-reply failed", replyError);
+      else console.log("contact auto-reply sent", replyData?.id);
     } catch (autoErr) {
-      console.error("contact auto-reply failed", autoErr);
+      console.error("contact auto-reply threw", autoErr);
     }
 
     return res.status(200).json({ ok: true });
