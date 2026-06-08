@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Stripe from "stripe";
-import { computeAmountCents, computeTotal } from "../src/data/pricing";
+import { computeAmountCents, computeTotal } from "../src/data/pricing.js";
 
 // Server-only secret. Test mode key (sk_test_…) during development.
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");

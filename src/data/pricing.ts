@@ -1,4 +1,4 @@
-import { SERVICES, ADDONS, PROPERTY_SIZES } from "./content";
+import { SERVICES, ADDONS, PROPERTY_SIZES } from "./content.js";
 
 /**
  * Single source of truth for the booking price.
