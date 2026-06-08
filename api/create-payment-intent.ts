@@ -10,7 +10,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
  * Body: booking payload (service, size, addons, contact fields).
  * Recomputes the charge from the SHARED pricing module — never trusts a
  * client-supplied total — and creates a CAD PaymentIntent (amount in cents).
- * receipt_email is set so Stripe emails the customer their payment receipt.
+ * The customer email is stored in metadata; the branded receipt is sent from
+ * api/stripe-webhook.ts on payment_intent.succeeded (no Stripe receipt_email).
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -33,7 +34,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: "cad",
-      receipt_email: email || undefined,
+      // No receipt_email: the branded receipt from api/stripe-webhook.ts is the
+      // single customer-facing receipt. We still keep the email in metadata
+      // (customer_email) so the webhook knows where to send it.
       automatic_payment_methods: { enabled: true },
       description: `Eco Elan — ${service ?? "cleaning"} clean`,
       metadata: {
