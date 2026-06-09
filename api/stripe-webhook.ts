@@ -82,8 +82,8 @@ function buildReceiptHtml(pi: Stripe.PaymentIntent): string {
             <td bgcolor="#2E7355" style="background-color:#2E7355;background-image:linear-gradient(180deg,#2E7355,#11271B);padding:40px 32px;text-align:center;">
               <table role="presentation" cellpadding="0" cellspacing="0" align="center">
                 <tr>
-                  <td width="84" height="84" align="center" valign="middle" bgcolor="#ffffff" style="background-color:#ffffff;border-radius:42px;text-align:center;">
-                    <img src="${LOGO_URL}" width="52" alt="Eco Elan" style="display:inline-block;width:52px;height:auto;border:0;outline:none;" />
+                  <td align="center" valign="middle" bgcolor="#ffffff" style="background-color:#ffffff;border-radius:16px;padding:16px 22px;text-align:center;">
+                    <img src="${LOGO_URL}" width="150" alt="Eco Elan" style="display:block;width:150px;height:auto;border:0;outline:none;" />
                   </td>
                 </tr>
               </table>
