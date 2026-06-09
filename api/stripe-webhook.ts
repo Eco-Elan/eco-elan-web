@@ -10,7 +10,10 @@ const resend = new Resend(process.env.RESEND_API_KEY ?? "");
 // FROM must be on a domain verified in Resend (e.g. eco-elan.com).
 const FROM = process.env.CONTACT_FROM_EMAIL ?? "Eco Elan <noreply@eco-elan.com>";
 
-const LOGO_URL = "https://www.eco-elan.com/assets/logo-email.png";
+// Served from /public. Note: email clients (esp. Gmail's image proxy) cache by
+// URL, so when the logo art changes, give it a fresh filename rather than
+// overwriting the old path — otherwise the stale cached image keeps showing.
+const LOGO_URL = "https://www.eco-elan.com/assets/receipt-logo.png";
 
 // Stripe signature verification needs the raw, unparsed request body — disable
 // Vercel's automatic JSON body parsing for this function.
