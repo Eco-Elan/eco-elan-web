@@ -2,7 +2,6 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { Resend } from "resend";
 import { requireAdmin, AuthError } from "../../src/server/adminAuth.js";
 import { getOrderById, updateOrderDoc } from "../../src/server/supabaseAdmin.js";
-import { renderQuotationPdf, renderInvoicePdf } from "../../src/server/pdf/index.js";
 import { quoteId, invId } from "../../src/data/admin.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY ?? "");
@@ -44,6 +43,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const order = await getOrderById(String(orderId));
     if (!order) return res.status(404).json({ error: "Order not found" });
 
+    // Loaded lazily (not a top-level import) so any @react-pdf init failure is
+    // catchable here and reported as JSON, instead of crashing the whole
+    // function at module-load time (FUNCTION_INVOCATION_FAILED).
+    const { renderQuotationPdf, renderInvoicePdf } = await import("../../src/server/pdf/index.js");
     const pdf = isQuote ? await renderQuotationPdf(order) : await renderInvoicePdf(order);
     const filename = (isQuote ? quoteId(order) : invId(order)) + ".pdf";
     const to = String(reqBody.to || order.client.email);
@@ -81,6 +84,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ order: updated });
   } catch (err) {
     console.error("admin/send-document error", err);
-    return res.status(500).json({ error: "Could not send document" });
+    // Temporary: surface the real reason (e.g. a PDF-render failure) to the
+    // client so we can diagnose the production crash.
+    const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    return res.status(500).json({ error: "Could not send document", detail });
   }
 }
