@@ -79,6 +79,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ order: updated, url: link.url });
   } catch (err) {
     console.error("admin/payment-link error", err);
-    return res.status(500).json({ error: "Could not create payment link" });
+    // Temporary: surface the real reason (usually a Stripe API error) so we can
+    // diagnose the production failure.
+    const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    return res.status(500).json({ error: "Could not create payment link", detail });
   }
 }

@@ -363,13 +363,16 @@ export class EeAdminPage extends Component<Props, State> {
     await this.saveOrder(o.seq);
     try {
       const r = await this.props.authFetch("/api/admin/payment-link", { method: "POST", body: JSON.stringify({ orderId: o.id }) });
-      if (!r.ok) throw new Error();
+      if (!r.ok) {
+        const j = (await r.json().catch(() => ({}))) as { detail?: string; error?: string };
+        throw new Error(j.detail || j.error || "HTTP " + r.status);
+      }
       const { order } = await r.json();
       this.setState((prev) => ({ orders: { ...prev.orders, [order.seq]: order }, busy: false, copied: false }));
       this.showToast("Stripe payment link generated");
-    } catch {
+    } catch (e) {
       this.setState({ busy: false });
-      this.showToast("Could not generate payment link");
+      this.showToast("Link failed — " + (e as Error).message);
     }
   }
   /** Branded customer pay page URL (what the customer is sent), not the raw
