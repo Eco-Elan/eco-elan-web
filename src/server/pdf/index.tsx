@@ -6,6 +6,11 @@
  * a serverless function. Imported by api/admin/send-document.ts and the Stripe
  * webhook. Numbers come from the shared math in src/data/admin.ts.
  */
+// JSX in this file is compiled by Vercel's bundler with the CLASSIC runtime
+// (React.createElement), which needs React in scope. Without this import the
+// serverless function crashes at render time (FUNCTION_INVOCATION_FAILED).
+// The import is harmless under the automatic runtime (it's simply unused).
+import * as React from "react";
 import { Document, Page, View, Text, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import { type Order, money, invMath, quoteTotal, quoteId, invId, rctId } from "../../data/admin.js";
 

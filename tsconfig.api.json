@@ -6,7 +6,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "types": ["node"],
-    "jsx": "react-jsx",
+    "jsx": "react",
     "skipLibCheck": true,
     "esModuleInterop": true,
     "verbatimModuleSyntax": true,
