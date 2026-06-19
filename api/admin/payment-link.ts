@@ -57,7 +57,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       line_items: [{ price: price.id, quantity: 1 }],
       metadata: meta,
       payment_intent_data: { metadata: meta },
-      after_completion: { type: "redirect", redirect: { url: `${BASE}/?paid=${invoiceId}` } },
+      // Back to the customer pay page, which flips to the paid/thank-you state.
+      after_completion: { type: "redirect", redirect: { url: `${BASE}/pay/${order.id}?paid=1` } },
     });
 
     const total = Math.round(invMath(order).total * 100) / 100;

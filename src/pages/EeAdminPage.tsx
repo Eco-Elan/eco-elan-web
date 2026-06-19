@@ -372,8 +372,16 @@ export class EeAdminPage extends Component<Props, State> {
       this.showToast("Could not generate payment link");
     }
   }
+  /** Branded customer pay page URL (what the customer is sent), not the raw
+   *  Stripe URL. Empty until a Stripe link has been generated for the order. */
+  payPageUrl(): string {
+    const o = this.state.orders[this.state.activeSeq];
+    if (!o?.id || !o.payment.stripeUrl) return "";
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return origin + "/pay/" + o.id;
+  }
   copyLink() {
-    const url = this.state.orders[this.state.activeSeq]?.payment?.stripeUrl;
+    const url = this.payPageUrl();
     if (!url) return;
     try {
       if (navigator.clipboard) navigator.clipboard.writeText(url);
@@ -384,8 +392,8 @@ export class EeAdminPage extends Component<Props, State> {
     clearTimeout(this._copyT);
     this._copyT = setTimeout(() => this.setState({ copied: false }), 1800);
   }
-  openStripeLink() {
-    const url = this.state.orders[this.state.activeSeq]?.payment?.stripeUrl;
+  openPayPage() {
+    const url = this.payPageUrl();
     if (url) window.open(url, "_blank", "noopener");
     else this.showToast("Generate a payment link first");
   }
@@ -710,7 +718,7 @@ export class EeAdminPage extends Component<Props, State> {
       rctId: rctId(o),
       payAmountFmt: money(m.total),
       linkGenerated: !!o.payment.linkGenerated && !!o.payment.stripeUrl,
-      payUrl: o.payment.stripeUrl ?? "",
+      payUrl: this.payPageUrl(),
       copyLabel: S.copied ? "Copied ✓" : "Copy",
       modalOpen: !!S.modal,
       modalTitle: S.modal ? (S.modal.docType === "quote" ? "Send quotation" : "Send invoice") : "",
@@ -829,13 +837,13 @@ export class EeAdminPage extends Component<Props, State> {
               <span style={st(rs.navLabel)}>Collapse</span>
             </button>
 
-            <button onClick={() => this.openStripeLink()} title="Open Stripe payment page" style={st(rs.mobCust)}>
+            <button onClick={() => this.openPayPage()} title="Open customer payment page" style={st(rs.mobCust)}>
               <Ic n="eye" s={17} sw={2} />
             </button>
 
             <div style={st(rs.promo)}>
-              <div style={st("font-size:11px;color:#9FBBA9;line-height:1.55;")}>Open the live Stripe page your customer pays on for this order.</div>
-              <button onClick={() => this.openStripeLink()} style={st("margin-top:11px;width:100%;display:flex;align-items:center;justify-content:center;gap:7px;background:#2E7355;color:#fff;border:none;border-radius:9px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;")}>
+              <div style={st("font-size:11px;color:#9FBBA9;line-height:1.55;")}>Open the customer payment page for this order — the same page your customer sees.</div>
+              <button onClick={() => this.openPayPage()} style={st("margin-top:11px;width:100%;display:flex;align-items:center;justify-content:center;gap:7px;background:#2E7355;color:#fff;border:none;border-radius:9px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;")}>
                 <Ic n="eye" s={14} sw={2} />
                 View payment page
               </button>
@@ -1332,7 +1340,7 @@ export class EeAdminPage extends Component<Props, State> {
                       <button onClick={() => this.emailLink()} style={st("flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#ECF2EC;color:#2E7355;border:none;border-radius:9px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;")}>
                         <Ic n="mail" s={15} sw={1.9} />Email invoice to customer
                       </button>
-                      <button onClick={() => this.openStripeLink()} style={st("flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#2E7355;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;")}>
+                      <button onClick={() => this.openPayPage()} style={st("flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#2E7355;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;")}>
                         <Ic n="eye" s={15} sw={1.9} />Open payment page
                       </button>
                     </div>

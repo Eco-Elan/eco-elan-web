@@ -7,6 +7,7 @@ import { quoteId, invId } from "../../src/data/admin.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY ?? "");
 const FROM = process.env.CONTACT_FROM_EMAIL ?? "Eco Elan <noreply@eco-elan.com>";
+const BASE = process.env.PUBLIC_BASE_URL ?? "https://www.eco-elan.com";
 
 const esc = (x: unknown) => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -50,9 +51,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const subject = String(reqBody.subject || (isQuote ? `Your Eco Elan quotation ${quoteId(order)}` : `Invoice ${invId(order)} from Eco Elan`));
     const bodyText = String(reqBody.body || "Please find your document attached.\n\n— Eco Elan Cleaning Services");
 
+    // For invoices with a generated payment link, include a prominent button to
+    // the customer pay page (/pay/:id) so the email isn't just a PDF — the
+    // customer can pay online and gets a receipt automatically.
+    const payBlock =
+      !isQuote && order.payment.stripeUrl
+        ? `<div style="margin:22px 0">
+             <a href="${BASE}/pay/${order.id}" style="display:inline-block;background:#2E7355;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 28px;border-radius:10px">Pay invoice online</a>
+             <div style="color:#6B7B72;font-size:12px;margin-top:8px">Secure payment · your receipt is emailed automatically.</div>
+           </div>`
+        : "";
+
     const html = `
       <div style="font-family:system-ui,sans-serif;color:#0F1A14;line-height:1.55">
         <p style="white-space:pre-wrap">${esc(bodyText)}</p>
+        ${payBlock}
         <p style="color:#6B7B72;font-size:13px;margin-top:18px">Eco Elan Cleaning Services · Toronto &amp; the GTA · info@eco-elan.com</p>
       </div>`;
 

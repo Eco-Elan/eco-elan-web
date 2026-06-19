@@ -11,6 +11,7 @@ import { AboutPage } from "./pages/AboutPage";
 import { ContactPage } from "./pages/ContactPage";
 import { BookingPage } from "./pages/BookingPage";
 import EeAdminGate from "./pages/ee-admin/AuthGate";
+import PayPage from "./pages/PayPage";
 
 // Warm the browser image cache during idle time so each page's hero (and other
 // key images) is already downloaded before the user navigates there. Ordered by
@@ -81,6 +82,8 @@ export default function App() {
     <Routes>
       {/* Full-screen admin console (staff login required) — no marketing chrome. */}
       <Route path="/ee-admin" element={<EeAdminGate />} />
+      {/* Standalone customer payment page (links from the invoice email). */}
+      <Route path="/pay/:id" element={<PayPage />} />
       {/* Everything else is the public marketing site. */}
       <Route path="/*" element={<MarketingShell />} />
     </Routes>
