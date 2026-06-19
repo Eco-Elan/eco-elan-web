@@ -90,7 +90,7 @@ export async function createOrder(): Promise<Order> {
   const blank: OrderDoc = {
     client: { name: "New client", company: "", contact: "", phone: "", email: "", address: "" },
     quote: { status: "draft", issued: today(), valid: plusDays(30), notes: "", items: [] },
-    invoice: { status: "draft", issued: today(), due: plusDays(14), discountLabel: "Discount", discount: 0, hst: true, items: [] },
+    invoice: { status: "draft", issued: today(), due: plusDays(14), discountLabel: "Discount", discount: 0, hst: true, items: [], fromQuote: true },
     payment: { status: "unpaid", linkGenerated: false, amount: null, paidOn: null, receiptSent: false, method: null },
   };
   const { data, error } = await adminDb

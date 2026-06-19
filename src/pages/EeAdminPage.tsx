@@ -9,6 +9,8 @@ import {
   money,
   invMath,
   quoteTotal,
+  quoteItemsToInvItems,
+  invItemsToQuoteItems,
   quoteId,
   invId,
   rctId,
@@ -236,13 +238,41 @@ export class EeAdminPage extends Component<Props, State> {
     this.setState(
       (prev) => {
         const orders: Orders = JSON.parse(JSON.stringify(prev.orders));
-        fn(orders[prev.activeSeq], orders);
+        const active = orders[prev.activeSeq];
+        fn(active, orders);
+        // While the invoice is linked to the quotation, its line items mirror
+        // the quote's after every edit. An edit that touches the invoice itself
+        // sets fromQuote=false (below), so this won't clobber manual changes.
+        if (active && active.invoice.fromQuote) {
+          active.invoice.items = quoteItemsToInvItems(active.quote.items);
+        }
         return { orders };
       },
       () => {
         this.queueSave(this.state.activeSeq);
         cb?.();
       }
+    );
+  }
+
+  /** Re-link the invoice and copy the quotation's line items into it. */
+  syncInvoiceFromQuote() {
+    this.mutate(
+      (o) => {
+        o.invoice.fromQuote = true;
+      },
+      () => this.showToast("Invoice synced from quotation")
+    );
+  }
+
+  /** Copy the invoice's line items back into the quotation (invoice-first flow). */
+  buildQuoteFromInvoice() {
+    this.mutate(
+      (o) => {
+        o.quote.items = invItemsToQuoteItems(o.invoice.items);
+        o.invoice.fromQuote = false; // the invoice is now the source of truth
+      },
+      () => this.showToast("Quotation built from invoice")
     );
   }
 
@@ -371,6 +401,7 @@ export class EeAdminPage extends Component<Props, State> {
   }
   pickService(doc: "quote" | "invoice", i: number, val: string) {
     this.mutate((o) => {
+      if (doc === "invoice") o.invoice.fromQuote = false;
       const item = o[doc].items[i];
       item.desc = val;
       const c = SERVICE_CATALOG.find((s) => s.name === val);
@@ -379,6 +410,7 @@ export class EeAdminPage extends Component<Props, State> {
   }
   setDetail(doc: "quote" | "invoice", i: number, val: string) {
     this.mutate((o) => {
+      if (doc === "invoice") o.invoice.fromQuote = false;
       o[doc].items[i].detail = val;
     });
   }
@@ -404,16 +436,19 @@ export class EeAdminPage extends Component<Props, State> {
   }
   editInvItem(i: number, key: keyof InvItem, val: string) {
     this.mutate((o) => {
+      o.invoice.fromQuote = false;
       o.invoice.items[i][key] = val;
     });
   }
   addInvItem() {
     this.mutate((o) => {
+      o.invoice.fromQuote = false;
       o.invoice.items.push({ desc: "New item", detail: "", unit: 0, qty: 1 });
     });
   }
   removeInvItem(i: number) {
     this.mutate((o) => {
+      o.invoice.fromQuote = false;
       o.invoice.items.splice(i, 1);
     });
   }
@@ -662,6 +697,8 @@ export class EeAdminPage extends Component<Props, State> {
       invDue: o.invoice.due,
       invStatus: o.invoice.status,
       invChip: this.chip(o.invoice.status),
+      invFromQuote: !!o.invoice.fromQuote,
+      canPullFromInvoice: !o.invoice.fromQuote && o.invoice.items.length > 0,
       invSubtotalFmt: money(m.subtotal),
       invDiscount: o.invoice.discount,
       invDiscountLabel: o.invoice.discountLabel,
@@ -920,9 +957,16 @@ export class EeAdminPage extends Component<Props, State> {
 
                   <div style={st("display:flex;align-items:center;justify-content:space-between;margin:24px 0 12px;border-bottom:1px solid #E2E7DD;padding-bottom:8px;")}>
                     <span style={st("font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#2E7355;")}>Scope &amp; pricing</span>
-                    <button onClick={() => this.addQuoteItem()} style={st("display:inline-flex;align-items:center;gap:5px;background:#ECF2EC;color:#2E7355;border:none;border-radius:7px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;")}>
-                      <Ic n="plus" s={13} sw={2.4} />Add field
-                    </button>
+                    <div style={st("display:flex;gap:8px;")}>
+                      {v.canPullFromInvoice && (
+                        <button onClick={() => this.buildQuoteFromInvoice()} title="Copy the invoice's line items into this quotation" style={st("display:inline-flex;align-items:center;gap:5px;background:#fff;color:#2E7355;border:1px solid #CFE0D4;border-radius:7px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;")}>
+                          <Ic n="link" s={13} sw={2} />Pull from invoice
+                        </button>
+                      )}
+                      <button onClick={() => this.addQuoteItem()} style={st("display:inline-flex;align-items:center;gap:5px;background:#ECF2EC;color:#2E7355;border:none;border-radius:7px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;")}>
+                        <Ic n="plus" s={13} sw={2.4} />Add field
+                      </button>
+                    </div>
                   </div>
                   <div style={st("display:flex;flex-direction:column;gap:10px;")}>
                     {quoteRows.map((row) => {
@@ -1072,6 +1116,20 @@ export class EeAdminPage extends Component<Props, State> {
                     <button onClick={() => this.addInvItem()} style={st("display:inline-flex;align-items:center;gap:5px;background:#ECF2EC;color:#2E7355;border:none;border-radius:7px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;")}>
                       <Ic n="plus" s={13} sw={2.4} />Add item
                     </button>
+                  </div>
+                  <div style={st("display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-2px 0 12px;")}>
+                    {v.invFromQuote ? (
+                      <span style={st("display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:#2E7355;background:#ECF2EC;border-radius:7px;padding:6px 10px;line-height:1.3;")}>
+                        <Ic n="link" s={13} sw={2} />Auto-filled from the quotation — editing a line unlinks it
+                      </span>
+                    ) : (
+                      <>
+                        <span style={st("font-size:11px;color:#9AA79E;")}>Independent of the quotation</span>
+                        <button onClick={() => this.syncInvoiceFromQuote()} title="Replace these line items with the quotation's" style={st("display:inline-flex;align-items:center;gap:5px;background:#fff;color:#2E7355;border:1px solid #CFE0D4;border-radius:7px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;")}>
+                          <Ic n="link" s={13} sw={2} />Sync from quotation
+                        </button>
+                      </>
+                    )}
                   </div>
                   <div style={st("display:flex;flex-direction:column;gap:10px;")}>
                     {invRows.map((row) => {

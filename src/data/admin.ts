@@ -26,6 +26,14 @@ export type Invoice = {
   discount: number | string;
   hst: boolean;
   items: InvItem[];
+  /**
+   * When true, the invoice line items auto-mirror the quotation's (a quote line
+   * `amount` becomes an invoice line at `unit = amount, qty = 1`). Editing an
+   * invoice line directly unlinks it (sets this false); the "Sync from
+   * quotation" action re-links and re-copies. Undefined is treated as unlinked,
+   * so existing/seed orders keep their hand-tuned invoices untouched.
+   */
+  fromQuote?: boolean;
 };
 export type Payment = {
   status: string;
@@ -82,6 +90,20 @@ export function invMath(o: Order) {
 
 export function quoteTotal(o: Order): number {
   return o.quote.items.reduce((s, it) => s + Number(it.amount || 0), 0);
+}
+
+/** A quote line is a flat amount → one invoice line at that unit price, qty 1. */
+export function quoteItemsToInvItems(items: QuoteItem[]): InvItem[] {
+  return items.map((it) => ({ desc: it.desc, detail: it.detail, unit: it.amount, qty: 1 }));
+}
+
+/** An invoice line's extended price (unit × qty) becomes the quote line amount. */
+export function invItemsToQuoteItems(items: InvItem[]): QuoteItem[] {
+  return items.map((it) => ({
+    desc: it.desc,
+    detail: it.detail,
+    amount: Math.round(Number(it.unit || 0) * Number(it.qty || 0) * 100) / 100,
+  }));
 }
 
 /** Total in the minor unit Stripe expects (CAD cents), rounded. */
