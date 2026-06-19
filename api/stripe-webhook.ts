@@ -4,7 +4,7 @@ import { Resend } from "resend";
 import { SERVICES, ADDONS, PROPERTY_SIZES } from "../src/data/content.js";
 import { markOrderPaid } from "../src/server/supabaseAdmin.js";
 import { renderReceiptPdf } from "../src/server/pdf/index.js";
-import { invId, rctId } from "../src/data/admin.js";
+import { type Order, invId, rctId, invMath, money } from "../src/data/admin.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
@@ -142,6 +142,105 @@ function buildReceiptHtml(pi: Stripe.PaymentIntent): string {
 }
 
 /**
+ * Branded HTML receipt for a paid admin invoice. Mirrors the booking receipt's
+ * look (logo header band, reference chip, itemized table, footer) but is built
+ * from the order's actual invoice line items so it reflects exactly what was
+ * paid — each line, subtotal, discount, HST, and the total.
+ */
+function buildInvoiceReceiptHtml(order: Order): string {
+  const m = invMath(order);
+  const paidOn =
+    order.payment.paidOn ?? new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const method = order.payment.method ?? "Card · Stripe";
+
+  const itemRows = order.invoice.items
+    .map((it) => {
+      const qty = Number(it.qty || 0);
+      const ext = Number(it.unit || 0) * qty;
+      const label = esc(it.desc) + (qty > 1 ? ` &times; ${qty}` : "");
+      const detail = it.detail ? `<div style="font-size:11px;color:#9AA79E;margin-top:1px;">${esc(it.detail)}</div>` : "";
+      return `
+        <tr>
+          <td style="padding:9px 0;border-bottom:1px solid #E2E7DD;font-size:13px;color:#0F1A14;font-weight:600;">${label}${detail}</td>
+          <td style="padding:9px 0;border-bottom:1px solid #E2E7DD;font-size:14px;color:#0F1A14;font-weight:600;text-align:right;white-space:nowrap;">${esc(money(ext))}</td>
+        </tr>`;
+    })
+    .join("");
+
+  const adjustRows = [line("Subtotal", money(m.subtotal))];
+  if (m.discount > 0) adjustRows.push(line(order.invoice.discountLabel || "Discount", "-" + money(m.discount)));
+  if (order.invoice.hst) adjustRows.push(line("HST (13%)", money(m.hst)));
+
+  return `<!doctype html>
+<html>
+<body style="margin:0;padding:0;background:#F8F9F4;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F8F9F4;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:560px;max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #E2E7DD;">
+
+          <!-- Header band -->
+          <tr>
+            <td bgcolor="#2E7355" style="background-color:#2E7355;background-image:linear-gradient(180deg,#2E7355,#11271B);padding:40px 32px;text-align:center;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td align="center" valign="middle" bgcolor="#ffffff" style="background-color:#ffffff;border-radius:16px;padding:16px 22px;text-align:center;">
+                    <img src="${LOGO_URL}" width="150" alt="Eco Elan" style="display:block;width:150px;height:auto;border:0;outline:none;" />
+                  </td>
+                </tr>
+              </table>
+              <h1 style="margin:18px 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:26px;line-height:1.2;color:#ffffff;">Payment received</h1>
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:rgba(255,255,255,0.85);">Thank you, ${esc(order.client.name || "")} — invoice ${esc(invId(order))} is paid in full.</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:28px 32px;font-family:Arial,Helvetica,sans-serif;">
+
+              <!-- Reference chip -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px;">
+                <tr>
+                  <td align="center" bgcolor="#EFF1E8" style="background-color:#EFF1E8;border:1px solid #E2E7DD;border-radius:12px;padding:14px;">
+                    <div style="font-size:10px;font-weight:700;color:#6B7B72;text-transform:uppercase;letter-spacing:0.16em;margin-bottom:5px;">Receipt</div>
+                    <div style="font-size:16px;font-weight:700;color:#11271B;font-family:Consolas,Menlo,monospace;">${esc(rctId(order))}</div>
+                    <div style="font-size:12px;color:#6B7B72;margin-top:6px;">Invoice ${esc(invId(order))} &middot; Paid ${esc(paidOn)} &middot; ${esc(method)}</div>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="font-weight:700;color:#0F1A14;font-size:15px;margin-bottom:6px;">Billed to</div>
+              <div style="font-size:13px;color:#46554C;line-height:1.6;margin-bottom:18px;">
+                ${esc(order.client.name || "")}${order.client.address ? `<br/>${esc(order.client.address)}` : ""}${order.client.email ? `<br/>${esc(order.client.email)}` : ""}
+              </div>
+
+              <div style="font-size:11px;font-weight:700;color:#6B7B72;text-transform:uppercase;letter-spacing:0.12em;margin:0 0 4px;">Items paid</div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                ${itemRows}
+              </table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+                ${adjustRows.join("")}
+                ${line("Total paid", `${money(m.total)} CAD`, { total: true })}
+              </table>
+
+              <!-- Footer -->
+              <p style="margin:26px 0 0;font-size:12px;line-height:1.6;color:#6B7B72;text-align:center;">
+                Eco Elan &middot; Toronto &amp; GTA, Ontario<br/>
+                <a href="mailto:info@eco-elan.com" style="color:#2E7355;text-decoration:none;">info@eco-elan.com</a> &middot; +1 (437) 265-4977
+              </p>
+
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+/**
  * POST /api/stripe-webhook
  * Verifies the Stripe signature and treats `payment_intent.succeeded` as the
  * authoritative signal that a booking was paid, then sends the single branded
@@ -207,7 +306,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             from: FROM,
             to: recipient,
             subject: `Your Eco Elan receipt ${rctId(order)} — invoice ${invId(order)} paid`,
-            html: `<div style="font-family:system-ui,sans-serif;color:#0F1A14;line-height:1.55"><p>Thank you — your payment was received and your booking is confirmed. Your receipt is attached.</p><p style="color:#6B7B72;font-size:13px">Eco Elan Cleaning Services · Toronto &amp; the GTA · info@eco-elan.com</p></div>`,
+            html: buildInvoiceReceiptHtml(order),
             attachments: [{ filename: rctId(order) + ".pdf", content: pdf }],
           });
           if (error) console.error("invoice receipt email failed for", meta.orderId, error);
