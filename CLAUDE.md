@@ -15,15 +15,15 @@ There is no test suite.
 
 ## Architecture
 
-**Eco Elan** is a static marketing + booking site for a Toronto eco-cleaning service. React 19 + TypeScript + Vite, routed with React Router v7. No backend — the booking wizard is fully frontend and fires no API calls.
+**Eco Elan** is a marketing + booking site for a Toronto eco-cleaning service. React 19 + TypeScript + Vite, routed with React Router v7. The frontend is static, but it's backed by **Vercel serverless functions in `/api`** that handle Stripe payments and Resend transactional email. Deploys to Vercel.
 
 ### Data layer
 
 All site content (services, pricing, plans, testimonials, FAQs, image URLs) lives in `src/data/content.ts` as typed exported constants. This is the single source of truth for copy and pricing. When updating services, prices, or plans, edit only this file.
 
-Pricing formula used in `StepConfirm`:
+**Pricing lives in `src/data/pricing.ts`** — `computeTotal()` and `computeAmountCents()` (CAD cents for Stripe). This is the single pricing source of truth, imported by BOTH the React app (`StepConfirm`, `StepPayment`, the receipt) and the serverless `/api` functions, so the amount shown to the client and the amount Stripe charges can never drift. The server always recomputes from this module and never trusts a client-supplied total.
 ```
-total = Math.round(service.price * propertySize.mult + addonsTotal)
+total = Math.round(service.price * propertySize.mult + addonsTotal)   // no tax applied
 ```
 
 ### Navigation
@@ -33,11 +33,34 @@ Never import `useNavigate` or `<Link>` directly. Use the abstractions in `src/li
 - `pathFor(route, params)` — builds typed URLs
 - `useCurrentRoute()` — returns the active `RouteName`
 
-All valid routes are the `RouteName` union type defined there.
+All valid routes are the `RouteName` union type defined there. Routes are declared in `App.tsx`; the catch-all `*` route renders `HomePage` (there is no 404 page). `App` also prefetches each page's hero image during browser idle time (`usePrefetchImages`).
+
+### Backend (`/api` serverless functions)
+
+Vercel serverless functions (Node, `@vercel/node`). They import shared app modules (`src/data/pricing.ts`, `src/data/content.ts`) using **`.js` extensions** — required for `nodenext`/ESM resolution at runtime even though the source files are `.ts`. `vercel.json` rewrites everything except `/api/*` to `index.html` (SPA fallback).
+
+- `POST /api/create-payment-intent` — recomputes the charge from `src/data/pricing.ts`, creates a CAD Stripe `PaymentIntent` (`automatic_payment_methods`), and stashes booking details in `metadata`. Deliberately sets **no `receipt_email`** so Stripe's own receipt is suppressed.
+- `POST /api/stripe-webhook` — verifies the Stripe signature (needs the **raw body**, so `bodyParser` is disabled via `export const config`). On `payment_intent.succeeded` it sends the single branded HTML receipt via Resend. Email failures are logged but never throw/non-200 (a non-200 makes Stripe retry the whole webhook).
+- `POST /api/contact` — emails the contact-form submission to the business inbox via Resend and sends the visitor a brief auto-reply.
+
+Required env vars (see `.env.example`): `VITE_STRIPE_PUBLISHABLE_KEY` (client, build-time), `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`, `CONTACT_FROM_EMAIL` (must be a Resend-verified domain), `CONTACT_TO_EMAIL`. Use Stripe **test** keys in development. Stripe is initialized client-side in `src/lib/stripe.ts` (`stripePromise` is `null` when the publishable key is missing; `ecoAppearance` themes the embedded Elements to the design tokens).
+
+Note: email clients (Gmail's image proxy) cache logo images by URL, so when the receipt logo art changes, give it a **fresh filename** rather than overwriting the old path — otherwise the stale cached image keeps showing.
+
+### Admin console (`/ee-admin`)
+
+A staff-only console for quotations, invoices and payment links, rendered **without** the marketing chrome (`App.tsx` routes `/ee-admin` outside the `MarketingShell`). `src/pages/EeAdminPage.tsx` is the (class-component) UI; `src/pages/ee-admin/AuthGate.tsx` wraps it with **Supabase magic-link auth** and supplies an `authFetch` that attaches the access token to every call.
+
+- **Data** lives in **Supabase Postgres** (`supabase/schema.sql` — one `orders` row per order, documents as JSONB). The console never touches the DB directly; it goes through `/api/admin/*`.
+- **Shared domain** (types, `SERVICE_CATALOG`, `seedOrders`, `money`, `invMath`, `quoteTotal`, doc IDs) is in **`src/data/admin.ts`** — isomorphic, imported by both the console and the API (same pattern as `pricing.ts`). HST is 13%.
+- **Server-only** modules are in **`src/server/`** (excluded from `tsconfig.app.json`; typechecked via `tsconfig.api.json` — run `npx tsc -p tsconfig.api.json`): `supabaseAdmin.ts` (service-role client + row↔Order mapping + data access), `adminAuth.ts` (`requireAdmin` = verify Supabase JWT + `ADMIN_EMAILS` allowlist — **the real authz boundary**; the client gate is UX), and `pdf/index.tsx` (`@react-pdf/renderer` quotation/invoice/receipt PDFs).
+- **Endpoints** (all call `requireAdmin` first): `GET/POST/PATCH /api/admin/orders`, `POST /api/admin/send-document` (renders + emails the PDF, marks doc `sent`), `POST /api/admin/payment-link` (real Stripe **Payment Link** for the invoice total, server-recomputed). The Stripe webhook now also handles `checkout.session.completed` (metadata `type:"invoice"`) → mark paid + email the receipt PDF.
+
+Admin env vars (see `.env.example`): `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (client auth), `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` (server, never exposed), `ADMIN_EMAILS` (comma-separated allowlist), `PUBLIC_BASE_URL`. The webhook must be subscribed to **both** `payment_intent.succeeded` (bookings) and `checkout.session.completed` (admin invoices).
 
 ### Booking wizard
 
-`BookingPage` owns all state (`BookingData`) and orchestrates the 4-step flow: Service → Schedule → Details → Confirm. Each step receives `data`, `setData`, `next`, and optionally `back`. The page accepts a `?service=<id>` query param to pre-select a service. After confirm, it renders `BookingConfirmed` instead of the wizard.
+`BookingPage` owns all state (`BookingData`) and orchestrates the 5-step flow: Service → Schedule → Details → Confirm → Payment. Each step receives `data`, `setData`, `next`, and optionally `back`. The page accepts a `?service=<id>` query param to pre-select a service. `StepPayment` creates the `PaymentIntent` on mount and mounts Stripe `<Elements>` (PaymentElement + ExpressCheckoutElement for Apple/Google Pay); on `payment_intent.succeeded` it calls `onPaid`, after which `BookingPage` renders `BookingConfirmed` instead of the wizard.
 
 ### Animations
 
@@ -53,6 +76,7 @@ The `motion` package (Motion/Framer Motion v12) is installed for more complex an
 - Buttons: `className="btn btn-primary"` or `className="btn btn-ghost"`
 - Section labels: `.eyebrow` (uppercase, tracked, green)
 - Inline styles are used alongside global classes throughout — this is intentional, not a mistake.
+- Ignore `design-system/eco-elan/MASTER.md` for token values. It is a generated spec describing a cyan `--color-*` palette that does **not** match the implementation. `src/styles.css` (`--eco-green`, etc.) is the only source of truth for the live design.
 
 ### Shared components
 

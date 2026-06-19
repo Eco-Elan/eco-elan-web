@@ -1,0 +1,19 @@
+{
+  "pkg": "nuueco",
+  "globalName": "EcoElan",
+  "projectId": "a1721d80-ba38-47e5-9b8a-9ff8b44e363b",
+  "shape": "package",
+  "entry": ".design-sync/eco-ds-entry.ts",
+  "cssEntry": "src/styles.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "runtimeFontPrefixes": ["Plus Jakarta Sans"],
+  "componentSrcMap": {
+    "Icon": "src/components/Icon.tsx",
+    "Img": "src/components/Img.tsx",
+    "Reveal": "src/components/Reveal.tsx",
+    "Counter": "src/components/Counter.tsx"
+  },
+  "overrides": {
+    "Img": { "cardMode": "column" }
+  }
+}

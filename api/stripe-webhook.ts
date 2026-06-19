@@ -2,6 +2,9 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { SERVICES, ADDONS, PROPERTY_SIZES } from "../src/data/content.js";
+import { markOrderPaid } from "../src/server/supabaseAdmin.js";
+import { renderReceiptPdf } from "../src/server/pdf/index.js";
+import { invId, rctId } from "../src/data/admin.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
@@ -185,6 +188,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         else console.log("receipt email sent for", pi.id, data?.id);
       } catch (mailErr) {
         console.error("receipt email threw for", pi.id, mailErr);
+      }
+    }
+  }
+
+  // Admin-console invoices are paid via a Stripe Payment Link → Checkout Session.
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const meta = session.metadata ?? {};
+    if (meta.type === "invoice" && meta.orderId) {
+      // Never throw / return non-200 — Stripe would retry the whole webhook.
+      try {
+        const order = await markOrderPaid(meta.orderId, { method: "Card · Stripe", receiptSent: true });
+        const recipient = order?.client.email || session.customer_details?.email || meta.customer_email;
+        if (order && recipient && process.env.RESEND_API_KEY) {
+          const pdf = await renderReceiptPdf(order);
+          const { error } = await resend.emails.send({
+            from: FROM,
+            to: recipient,
+            subject: `Your Eco Elan receipt ${rctId(order)} — invoice ${invId(order)} paid`,
+            html: `<div style="font-family:system-ui,sans-serif;color:#0F1A14;line-height:1.55"><p>Thank you — your payment was received and your booking is confirmed. Your receipt is attached.</p><p style="color:#6B7B72;font-size:13px">Eco Elan Cleaning Services · Toronto &amp; the GTA · info@eco-elan.com</p></div>`,
+            attachments: [{ filename: rctId(order) + ".pdf", content: pdf }],
+          });
+          if (error) console.error("invoice receipt email failed for", meta.orderId, error);
+        }
+      } catch (e) {
+        console.error("checkout.session.completed handling failed for", meta.orderId, e);
       }
     }
   }

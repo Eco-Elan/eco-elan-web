@@ -10,6 +10,7 @@ import { CommercialPage } from "./pages/CommercialPage";
 import { AboutPage } from "./pages/AboutPage";
 import { ContactPage } from "./pages/ContactPage";
 import { BookingPage } from "./pages/BookingPage";
+import EeAdminGate from "./pages/ee-admin/AuthGate";
 
 // Warm the browser image cache during idle time so each page's hero (and other
 // key images) is already downloaded before the user navigates there. Ordered by
@@ -51,7 +52,8 @@ function usePrefetchImages() {
   }, []);
 }
 
-export default function App() {
+// The public marketing site: global Header/Footer/ChatFab around the routed page.
+function MarketingShell() {
   usePrefetchImages();
   return (
     <>
@@ -71,5 +73,16 @@ export default function App() {
       <Footer />
       <ChatFab />
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      {/* Full-screen admin console (staff login required) — no marketing chrome. */}
+      <Route path="/ee-admin" element={<EeAdminGate />} />
+      {/* Everything else is the public marketing site. */}
+      <Route path="/*" element={<MarketingShell />} />
+    </Routes>
   );
 }
