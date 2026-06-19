@@ -197,10 +197,10 @@ const r = StyleSheet.create({
   price: { fontSize: 12, color: C.soft },
   total: { fontSize: 12.5, fontWeight: 700, color: C.ink },
 
-  summaryRow: { flexDirection: "row", justifyContent: "space-between", gap: 36, marginTop: 16 },
-  notesCol: { flex: 1 },
-  thankRow: { alignItems: "flex-end", marginTop: 6 },
-  totalsBox: { width: 250 },
+  totalsRow: { flexDirection: "row", marginTop: 14 },
+  totalsBox: { marginLeft: "auto", width: 250 },
+  bottomRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: "auto" },
+  notesCol: { maxWidth: 320 },
   tLine: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
   tLabel: { fontSize: 11, color: C.muted },
   tVal: { fontSize: 12, fontWeight: 700, color: C.ink },
@@ -310,8 +310,7 @@ function ReceiptDoc(order: Order) {
 
       h(
         View,
-        { style: r.summaryRow, wrap: false },
-        h(View, { style: r.notesCol }, T(r.notesLabel, "NOTES"), T(r.notesText, "Payment received in full — no balance owing. Cleaned with 100% plant-based, non-toxic products. We look forward to your next visit.")),
+        { style: r.totalsRow, wrap: false },
         h(
           View,
           { style: r.totalsBox },
@@ -322,7 +321,13 @@ function ReceiptDoc(order: Order) {
         )
       ),
 
-      h(View, { style: r.thankRow, wrap: false }, T(r.thankYou, "Thank you!")),
+      // Pushed to the bottom (near the footer) via marginTop:auto.
+      h(
+        View,
+        { style: r.bottomRow, wrap: false },
+        h(View, { style: r.notesCol }, T(r.notesLabel, "NOTES"), T(r.notesText, "Payment received in full — no balance owing. Cleaned with 100% plant-based, non-toxic products. We look forward to your next visit.")),
+        T(r.thankYou, "Thank you!")
+      ),
 
       h(
         View,
