@@ -14,6 +14,7 @@ import { createElement as h, type ComponentProps, type ReactNode } from "react";
 import { Document, Page, View, Text, Image, Svg, Path, StyleSheet, Font, renderToBuffer } from "@react-pdf/renderer";
 import { type Order, money, invMath, quoteTotal, quoteId, invId, rctId } from "../../data/admin.js";
 import { LOGO_PNG, LOGO_ASPECT, PJS_400, PJS_600, PJS_700, PJS_800 } from "./assets.js";
+import { DANCING_SCRIPT } from "./script-font.js";
 
 const FONT = "Plus Jakarta Sans";
 Font.register({
@@ -27,6 +28,10 @@ Font.register({
 });
 // Don't break long service descriptions across hyphenated fragments.
 Font.registerHyphenationCallback((word) => [word]);
+
+// Script face for the receipt's "Thank you!" flourish.
+const SCRIPT = "Dancing Script";
+Font.register({ family: SCRIPT, fonts: [{ src: DANCING_SCRIPT }] });
 
 const C = {
   green: "#2E7355",
@@ -165,7 +170,97 @@ function Totals(order: Order, totalLabel: string, bigLabel: string) {
   );
 }
 
+// ── Receipt: a distinct, minimal design (see design-system screenshots) ──────
+const r = StyleSheet.create({
+  eyebrow: { fontSize: 11, color: C.muted, fontWeight: 600, letterSpacing: 2.5, marginTop: 12 },
+  title: { fontSize: 40, color: C.ink, fontWeight: 600, letterSpacing: 9, marginTop: 2 },
+
+  stamp: { width: 112, height: 112, borderWidth: 1.5, borderColor: C.green, borderRadius: 56, alignItems: "center", justifyContent: "center", marginTop: 6 },
+  stampPaid: { fontSize: 20, fontWeight: 800, color: C.green, letterSpacing: 2.5, marginTop: 4 },
+  stampSub: { fontSize: 7.5, fontWeight: 700, color: C.green, letterSpacing: 2, marginTop: 3 },
+
+  metaWrap: { flexDirection: "row", gap: 40, marginTop: 20 },
+  metaCol: { flex: 1 },
+  field: { marginBottom: 9 },
+  fieldLabel: { fontSize: 9.5, fontWeight: 700, color: C.green, letterSpacing: 1.3, marginBottom: 4 },
+  fieldVal: { fontSize: 11, color: C.soft, lineHeight: 1.5 },
+
+  thead: { flexDirection: "row", borderBottomWidth: 2, borderColor: C.ink, paddingBottom: 8, marginTop: 16 },
+  th: { fontSize: 9.5, fontWeight: 700, color: C.ink, letterSpacing: 0.8 },
+  row: { flexDirection: "row", borderBottomWidth: 1, borderColor: C.line, paddingVertical: 6, alignItems: "center" },
+  cDesc: { flex: 1 },
+  cQty: { width: 60, textAlign: "center" },
+  cPrice: { width: 100, textAlign: "right" },
+  cTotal: { width: 110, textAlign: "right" },
+  itemName: { fontSize: 12.5, fontWeight: 700, color: C.ink },
+  qty: { fontSize: 12, color: C.green, fontWeight: 600 },
+  price: { fontSize: 12, color: C.soft },
+  total: { fontSize: 12.5, fontWeight: 700, color: C.ink },
+
+  summaryRow: { flexDirection: "row", justifyContent: "space-between", gap: 36, marginTop: 16 },
+  notesCol: { flex: 1 },
+  thankRow: { alignItems: "flex-end", marginTop: 6 },
+  totalsBox: { width: 250 },
+  tLine: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
+  tLabel: { fontSize: 11, color: C.muted },
+  tVal: { fontSize: 12, fontWeight: 700, color: C.ink },
+  tValGreen: { fontSize: 12, fontWeight: 700, color: C.green },
+  grandRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 2, borderColor: C.ink, marginTop: 6, paddingTop: 12 },
+  grandLabel: { fontSize: 15, fontWeight: 800, color: C.ink, letterSpacing: 0.5 },
+  grandVal: { fontSize: 20, fontWeight: 800, color: C.green },
+
+  notesLabel: { fontSize: 9.5, fontWeight: 700, color: C.green, letterSpacing: 1.3, marginBottom: 7 },
+  notesText: { fontSize: 10.5, color: C.soft, lineHeight: 1.6 },
+  thankYou: { fontFamily: SCRIPT, fontSize: 38, color: C.green },
+
+  footer: { position: "absolute", bottom: 0, left: 0, right: 0, borderTopWidth: 1, borderColor: C.line, paddingTop: 16, paddingBottom: 26, paddingHorizontal: 50, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  footItem: { flexDirection: "row", alignItems: "center", gap: 7 },
+  footText: { fontSize: 10.5, color: C.green, fontWeight: 600 },
+});
+
+function PaidStamp() {
+  return h(
+    View,
+    { style: r.stamp },
+    h(
+      Svg,
+      { width: 18, height: 18, viewBox: "0 0 24 24" },
+      h(Path, { d: "M11 20A7 7 0 0 1 4 13V5a7 7 0 0 1 7 7v8Z", stroke: C.green, strokeWidth: 1.8, fill: "none" }),
+      h(Path, { d: "M11 13c1.5-4.5 5-7 9-7-.5 5-3 8.5-7 9.5", stroke: C.green, strokeWidth: 1.8, fill: "none" })
+    ),
+    T(r.stampPaid, "PAID"),
+    T(r.stampSub, "ECO ELAN")
+  );
+}
+
+function PhoneIcon() {
+  return h(
+    Svg,
+    { width: 13, height: 13, viewBox: "0 0 24 24" },
+    h(Path, {
+      d: "M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.22 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z",
+      stroke: C.green,
+      strokeWidth: 1.8,
+      fill: "none",
+    })
+  );
+}
+
+function ShieldIcon() {
+  return h(
+    Svg,
+    { width: 13, height: 13, viewBox: "0 0 24 24" },
+    h(Path, { d: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z", stroke: C.green, strokeWidth: 1.8, fill: "none" }),
+    h(Path, { d: "m9 12 2 2 4-4", stroke: C.green, strokeWidth: 1.8, fill: "none" })
+  );
+}
+
+function MetaField(label: string, lines: string[]) {
+  return h(View, { style: r.field }, T(r.fieldLabel, label), ...lines.filter(Boolean).map((ln, i) => h(Text, { key: i, style: r.fieldVal }, ln)));
+}
+
 function ReceiptDoc(order: Order) {
+  const m = invMath(order);
   const paidOn = order.payment.paidOn ?? "—";
   const method = order.payment.method ?? "Card · Stripe";
   return h(
@@ -174,26 +269,68 @@ function ReceiptDoc(order: Order) {
     h(
       Page,
       { size: "A4", style: s.page },
-      Box(s.rowBetween, Logo(50), BusinessBlock()),
-
-      h(View, { style: s.titleRow }, T(s.docTitle, "RECEIPT"), h(View, { style: s.titleRule }), T(s.paidPill, "PAID")),
 
       h(
         View,
-        { style: s.cols },
-        h(View, { style: { flex: 1 } }, T(s.colLabel, "BILLED TO"), T(s.partyName, order.client.name), T(s.partyLine, order.client.address), T(s.partyLine, order.client.email)),
-        Meta([
-          ["Receipt No.", rctId(order)],
-          ["Invoice No.", invId(order)],
-          ["Date Paid", paidOn],
-          ["Method", method],
-        ])
+        { style: s.rowBetween },
+        h(View, null, h(Image, { src: LOGO_PNG, style: { height: 44, width: 44 * LOGO_ASPECT } }), T(r.eyebrow, "PAYMENT"), T(r.title, "RECEIPT")),
+        h(PaidStamp)
       ),
 
-      ItemsTable(order, { withQtyUnit: true }),
-      Totals(order, "TOTAL PAID", "Amount Paid (CAD)"),
+      h(
+        View,
+        { style: r.metaWrap },
+        h(
+          View,
+          { style: r.metaCol },
+          MetaField("DATE", [paidOn]),
+          MetaField("FROM", ["Eco Elan Cleaning Services", "Toronto & the GTA", "info@eco-elan.com"]),
+          MetaField("PAYMENT METHOD", [method])
+        ),
+        h(
+          View,
+          { style: r.metaCol },
+          MetaField("RECEIPT NO.", [rctId(order)]),
+          MetaField("BILLED TO", [order.client.name, order.client.address, order.client.email]),
+          MetaField("PAID ON", [paidOn])
+        )
+      ),
 
-      DocFooter("THANK YOU FOR YOUR PAYMENT", "Your payment has been received in full — we appreciate your business.")
+      h(View, { style: r.thead }, T([r.th, r.cDesc], "DESCRIPTION"), T([r.th, r.cQty], "QTY"), T([r.th, r.cPrice], "PRICE"), T([r.th, r.cTotal], "TOTAL")),
+      order.invoice.items.map((it, i) =>
+        h(
+          View,
+          { key: i, style: r.row },
+          T([r.cDesc, r.itemName], it.desc),
+          T([r.cQty, r.qty], String(it.qty)),
+          T([r.cPrice, r.price], money(it.unit)),
+          T([r.cTotal, r.total], money(Number(it.unit || 0) * Number(it.qty || 0)))
+        )
+      ),
+
+      h(
+        View,
+        { style: r.summaryRow, wrap: false },
+        h(View, { style: r.notesCol }, T(r.notesLabel, "NOTES"), T(r.notesText, "Payment received in full — no balance owing. Cleaned with 100% plant-based, non-toxic products. We look forward to your next visit.")),
+        h(
+          View,
+          { style: r.totalsBox },
+          h(View, { style: r.tLine }, T(r.tLabel, "Subtotal"), T(r.tVal, money(m.subtotal))),
+          m.discount > 0 ? h(View, { style: r.tLine }, T(r.tLabel, order.invoice.discountLabel || "Discount"), T(r.tValGreen, "-" + money(m.discount))) : null,
+          order.invoice.hst ? h(View, { style: r.tLine }, T(r.tLabel, "HST (13%)"), T(r.tVal, money(m.hst))) : null,
+          h(View, { style: r.grandRow, wrap: false }, T(r.grandLabel, "TOTAL PAID"), T(r.grandVal, money(m.total)))
+        )
+      ),
+
+      h(View, { style: r.thankRow, wrap: false }, T(r.thankYou, "Thank you!")),
+
+      h(
+        View,
+        { style: r.footer, fixed: true },
+        h(View, { style: r.footItem }, h(PhoneIcon), T(r.footText, "+1 (437) 265-4977")),
+        T(r.footText, "eco-elan.com"),
+        h(View, { style: r.footItem }, h(ShieldIcon), T(r.footText, "Insured & Bonded"))
+      )
     )
   );
 }
