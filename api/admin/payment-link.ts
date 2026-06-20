@@ -1,11 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import Stripe from "stripe";
 import { requireAdmin, AuthError } from "../../src/server/adminAuth.js";
-import { getOrderById, updateOrderDoc } from "../../src/server/supabaseAdmin.js";
-import { invId, rctId, invoiceAmountCents, invMath } from "../../src/data/admin.js";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
-const BASE = process.env.PUBLIC_BASE_URL ?? "https://www.eco-elan.com";
+import { getOrderById } from "../../src/server/supabaseAdmin.js";
+import { createPaymentLink } from "../../src/server/stripeLink.js";
 
 /**
  * POST /api/admin/payment-link  { orderId }
@@ -36,47 +32,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const order = await getOrderById(orderId);
     if (!order) return res.status(404).json({ error: "Order not found" });
 
-    const amount = invoiceAmountCents(order);
-    if (!Number.isFinite(amount) || amount < 50) {
-      return res.status(400).json({ error: "Invoice total is too small to charge" });
-    }
+    // Always (re)generate a fresh link from the explicit "Generate link" action.
+    const updated = await createPaymentLink(order);
 
-    const invoiceId = invId(order);
-    const receiptId = rctId(order);
-    const meta = { type: "invoice", orderId: order.id ?? "", invoiceId, receiptId, customer_email: order.client.email };
-
-    // Ad-hoc price (Payment Links require a Price object, unlike Checkout
-    // Sessions). Payment Links don't expire, so the invoice stays payable.
-    const price = await stripe.prices.create({
-      currency: "cad",
-      unit_amount: amount,
-      product_data: { name: `Invoice ${invoiceId} — Eco Elan Cleaning` },
-    });
-
-    const link = await stripe.paymentLinks.create({
-      line_items: [{ price: price.id, quantity: 1 }],
-      metadata: meta,
-      payment_intent_data: { metadata: meta },
-      // Back to the customer pay page, which flips to the paid/thank-you state.
-      after_completion: { type: "redirect", redirect: { url: `${BASE}/pay/${order.id}?paid=1` } },
-    });
-
-    const total = Math.round(invMath(order).total * 100) / 100;
-    const updated = await updateOrderDoc(order.id!, {
-      client: order.client,
-      quote: order.quote,
-      invoice: order.invoice,
-      payment: {
-        ...order.payment,
-        linkGenerated: true,
-        stripeLinkId: link.id,
-        stripeUrl: link.url,
-        amount: total,
-        status: order.payment.status === "paid" ? "paid" : "unpaid",
-      },
-    });
-
-    return res.status(200).json({ order: updated, url: link.url });
+    return res.status(200).json({ order: updated, url: updated.payment.stripeUrl });
   } catch (err) {
     console.error("admin/payment-link error", err);
     // Temporary: surface the real reason (usually a Stripe API error) so we can

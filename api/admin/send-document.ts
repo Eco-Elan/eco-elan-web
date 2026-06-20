@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { requireAdmin, AuthError } from "../../src/server/adminAuth.js";
 import { getOrderById, updateOrderDoc } from "../../src/server/supabaseAdmin.js";
 import { renderQuotationPdf, renderInvoicePdf } from "../../src/server/pdf/index.js";
+import { ensurePaymentLink } from "../../src/server/stripeLink.js";
 import { quoteId, invId } from "../../src/data/admin.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY ?? "");
@@ -42,8 +43,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "orderId and a valid docType are required" });
     }
 
-    const order = await getOrderById(String(orderId));
+    let order = await getOrderById(String(orderId));
     if (!order) return res.status(404).json({ error: "Order not found" });
+
+    // For invoices, make sure a Stripe payment link exists so the email always
+    // carries a working "Pay invoice online" button. A link failure here must
+    // not block the send — fall back to a PDF-only email.
+    if (!isQuote && !order.payment.stripeUrl) {
+      try {
+        order = await ensurePaymentLink(order);
+      } catch (linkErr) {
+        console.error("send-document: auto payment-link failed, sending PDF only", linkErr);
+      }
+    }
 
     const pdf = isQuote ? await renderQuotationPdf(order) : await renderInvoicePdf(order);
     const filename = (isQuote ? quoteId(order) : invId(order)) + ".pdf";

@@ -721,6 +721,8 @@ export class EeAdminPage extends Component<Props, State> {
       rctId: rctId(o),
       payAmountFmt: money(m.total),
       linkGenerated: !!o.payment.linkGenerated && !!o.payment.stripeUrl,
+      payIsPaid: o.payment.status === "paid",
+      paySeq: o.seq,
       payUrl: this.payPageUrl(),
       copyLabel: S.copied ? "Copied ✓" : "Copy",
       modalOpen: !!S.modal,
@@ -804,6 +806,27 @@ export class EeAdminPage extends Component<Props, State> {
     const orderSelect = (
       <select onChange={(e) => this.switchOrder(e.target.value)} value={S.activeSeq} style={st("width:100%;padding:10px 11px;border:1px solid #D8E0D4;border-radius:9px;font-size:13px;background:#fff;color:#11271B;cursor:pointer;")}>
         {orderOptions.map((op) => (
+          <option key={op.seq} value={op.seq}>
+            {op.label}
+          </option>
+        ))}
+      </select>
+    );
+
+    // The payment-links dropdown only offers orders that still owe money — a
+    // paid order has nothing left to charge, so listing it is misleading.
+    const unpaidOptions = Object.values(S.orders)
+      .filter((ord) => ord.payment.status !== "paid")
+      .map((ord) => ({ seq: ord.seq, label: "#" + ord.seq + " · " + ord.client.name }));
+    const activeIsPaid = o.payment.status === "paid";
+    const paymentOrderSelect = (
+      <select onChange={(e) => this.switchOrder(e.target.value)} value={activeIsPaid ? "" : S.activeSeq} style={st("width:100%;padding:10px 11px;border:1px solid #D8E0D4;border-radius:9px;font-size:13px;background:#fff;color:#11271B;cursor:pointer;")}>
+        {(activeIsPaid || unpaidOptions.length === 0) && (
+          <option value="" disabled>
+            {unpaidOptions.length === 0 ? "All orders are paid" : "Select an unpaid order…"}
+          </option>
+        )}
+        {unpaidOptions.map((op) => (
           <option key={op.seq} value={op.seq}>
             {op.label}
           </option>
@@ -1306,31 +1329,45 @@ export class EeAdminPage extends Component<Props, State> {
                   <div style={st(rs.payGrid)}>
                     <div>
                       <label style={st("display:block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7B72;margin-bottom:7px;")}>Commercial order</label>
-                      {orderSelect}
-                      <div style={st("font-size:11.5px;color:#6B7B72;margin-top:8px;")}>
-                        Invoice <span style={st("font-family:ui-monospace,Menlo,monospace;color:#2E7355;font-weight:700;")}>{v.invId}</span> · Receipt will be <span style={st("font-family:ui-monospace,Menlo,monospace;color:#2E7355;font-weight:700;")}>{v.rctId}</span>
-                      </div>
+                      {paymentOrderSelect}
+                      {!v.payIsPaid && (
+                        <div style={st("font-size:11.5px;color:#6B7B72;margin-top:8px;")}>
+                          Invoice <span style={st("font-family:ui-monospace,Menlo,monospace;color:#2E7355;font-weight:700;")}>{v.invId}</span> · Receipt will be <span style={st("font-family:ui-monospace,Menlo,monospace;color:#2E7355;font-weight:700;")}>{v.rctId}</span>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <label style={st("display:block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7B72;margin-bottom:7px;")}>Amount payable (CAD)</label>
-                      <div style={st("display:flex;align-items:center;border:1px solid #D8E0D4;border-radius:9px;background:#F6F8F2;padding:11px 12px;")}>
-                        <span style={st("font-size:15px;font-weight:800;color:#11271B;")}>{v.payAmountFmt}</span>
-                        <span style={st("margin-left:auto;font-size:11px;color:#9AA79E;")}>invoice total</span>
+                    {!v.payIsPaid && (
+                      <div>
+                        <label style={st("display:block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7B72;margin-bottom:7px;")}>Amount payable (CAD)</label>
+                        <div style={st("display:flex;align-items:center;border:1px solid #D8E0D4;border-radius:9px;background:#F6F8F2;padding:11px 12px;")}>
+                          <span style={st("font-size:15px;font-weight:800;color:#11271B;")}>{v.payAmountFmt}</span>
+                          <span style={st("margin-left:auto;font-size:11px;color:#9AA79E;")}>invoice total</span>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <div style={st("margin-top:18px;")}>
-                    <label style={st("display:block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7B72;margin-bottom:7px;")}>Customer email</label>
-                    <input value={v.q.email} onChange={clientH.email} style={st("width:100%;padding:11px;border:1px solid #D8E0D4;border-radius:9px;font-size:13px;color:#11271B;background:#fff;")} />
+                    )}
                   </div>
 
-                  <button onClick={() => this.generateLink()} disabled={S.busy} style={st("margin-top:20px;width:100%;display:flex;align-items:center;justify-content:center;gap:9px;background:#635BFF;color:#fff;border:none;border-radius:11px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 20px rgba(99,91,255,.24);" + (S.busy ? "opacity:.7;" : ""))}>
-                    {S.busy ? <span style={st("width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:ee-spin .7s linear infinite;")}></span> : <Ic n="link" s={17} sw={1.9} />}
-                    {v.linkGenerated ? "Regenerate Stripe payment link" : "Generate Stripe payment link"}
-                  </button>
+                  {v.payIsPaid ? (
+                    <div style={st("margin-top:18px;display:flex;align-items:center;gap:10px;background:#ECF6EF;border:1px solid #BFE0CC;border-radius:11px;padding:14px 16px;color:#2E7355;font-size:13px;font-weight:600;")}>
+                      <Ic n="check" s={18} sw={2.2} />
+                      Order #{v.paySeq} is already paid — no payment link needed. Pick an unpaid order above to charge it.
+                    </div>
+                  ) : (
+                    <>
+                      <div style={st("margin-top:18px;")}>
+                        <label style={st("display:block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7B72;margin-bottom:7px;")}>Customer email</label>
+                        <input value={v.q.email} onChange={clientH.email} style={st("width:100%;padding:11px;border:1px solid #D8E0D4;border-radius:9px;font-size:13px;color:#11271B;background:#fff;")} />
+                      </div>
+
+                      <button onClick={() => this.generateLink()} disabled={S.busy} style={st("margin-top:20px;width:100%;display:flex;align-items:center;justify-content:center;gap:9px;background:#635BFF;color:#fff;border:none;border-radius:11px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 20px rgba(99,91,255,.24);" + (S.busy ? "opacity:.7;" : ""))}>
+                        {S.busy ? <span style={st("width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:ee-spin .7s linear infinite;")}></span> : <Ic n="link" s={17} sw={1.9} />}
+                        {v.linkGenerated ? "Regenerate Stripe payment link" : "Generate Stripe payment link"}
+                      </button>
+                    </>
+                  )}
                 </div>
 
-                {v.linkGenerated && (
+                {!v.payIsPaid && v.linkGenerated && (
                   <div style={st("background:#fff;border:1px solid #E2E7DD;border-radius:16px;padding:22px;margin-top:18px;animation:ee-fade .3s ease;box-shadow:0 1px 3px rgba(16,42,30,.05);")}>
                     <div style={st("display:flex;align-items:center;gap:9px;color:#2E7355;font-weight:700;font-size:13px;")}>
                       <Ic n="check" s={17} sw={2.2} />Payment link ready
