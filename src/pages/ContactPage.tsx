@@ -33,6 +33,21 @@ export function ContactPage() {
   const setField = (k: keyof typeof form) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  const fireLeadConversion = (serviceId: string) => {
+    const isCommercial = serviceId === "office";
+    const g = (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag;
+    if (typeof g === "function") {
+      // Named conversion action — routes to the correct campaign
+      g("event", "conversion", {
+        send_to: isCommercial
+          ? "AW-18233620840/qEqaCInF0MccEOjyu_ZD"  // Commercial Lead
+          : "AW-18233620840/MkEGCI7E0MccEOjyu_ZD", // Residential Lead
+        currency: "CAD",
+        value: 1,
+      });
+    }
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setStatus("sending");
@@ -44,6 +59,7 @@ export function ContactPage() {
         body: JSON.stringify({ ...form, service: serviceName }),
       });
       if (!res.ok) throw new Error("send failed");
+      fireLeadConversion(form.service);
       setSubmitted(true);
     } catch {
       setStatus("error");
